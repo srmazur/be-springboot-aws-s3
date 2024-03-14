@@ -53,7 +53,7 @@ public class AmazonService {
 
         return fileURL;
     }
-
+//    dependencies
     private File convertMultiPartToFile(MultipartFile file) throws IOException{
         File convertFile = new File(file.getOriginalFilename());
         FileOutputStream fileOutputStream = new FileOutputStream(convertFile);
@@ -72,7 +72,7 @@ public class AmazonService {
                 .withCannedAcl(CannedAccessControlList.PublicRead));
     }
 
-    private String deleteFileFromS3bucket(String fileURL){
+    public String deleteFileFromS3bucket(String fileURL){
         String fileName = fileURL.substring(fileURL.lastIndexOf("/")+1);
         s3client.deleteObject(new DeleteObjectRequest(bucketName, fileName));
         return "Successfully deleted: " + fileName;
