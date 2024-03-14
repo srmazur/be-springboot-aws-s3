@@ -44,7 +44,6 @@ public class AmazonService {
     }
 
     public String createBucket(String bucketNameToCreate) {
-//        initializeAmazon();
         try {
             if (!s3client.doesBucketExist(bucketNameToCreate)) {
                 s3client.createBucket(bucketNameToCreate);
