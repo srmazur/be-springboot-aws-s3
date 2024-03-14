@@ -9,7 +9,10 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.*;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import com.amazonaws.services.s3.model.AmazonS3Exception;
+
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -18,21 +21,21 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
+@Service
 public class AmazonService {
     private AmazonS3 s3client;
 
-    @Value("${amazon.s3.region}")
+    @Value("${AWS_REGION}")
     private String region;
-    @Value("${amazon.s3.bucket}")
-    private String bucketName;
-    @Value("${amazon.aws.access-key-id}")
+    @Value("${AWS_ACCESS_KEY_ID}")
     private String accessKey;
-    @Value("${amazon.aws.access-key-secret}")
+    @Value("${AWS_SECRET_ACCESS_KEY}")
     private String secretKey;
 
     @PostConstruct
-    private void initializeAmazon(){
+    private void initializeAmazon() {
         AWSCredentials credentials = new BasicAWSCredentials(this.accessKey, this.secretKey);
         this.s3client = AmazonS3ClientBuilder.standard()
                 .withRegion(Regions.fromName(region))
@@ -40,12 +43,48 @@ public class AmazonService {
                 .build();
     }
 
-    public String uploadFile(MultipartFile multipartFile){
+    public String createBucket(String bucketNameToCreate) {
+//        initializeAmazon();
+        try {
+            if (!s3client.doesBucketExist(bucketNameToCreate)) {
+                s3client.createBucket(bucketNameToCreate);
+                return "Bucket created successfully: " + bucketNameToCreate;
+            } else {
+                return "Bucket already exists: " + bucketNameToCreate;
+            }
+        } catch (AmazonS3Exception e) {
+            e.printStackTrace();
+            return "Error in creating bucket: " + e.getMessage() + s3client.getS3AccountOwner().getDisplayName();
+        }
+    }
+
+    public String deleteBucket(String bucketNameToDelete) {
+        try {
+            ObjectListing objectListing = s3client.listObjects(bucketNameToDelete);
+            while (true) {
+                for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
+                    s3client.deleteObject(bucketNameToDelete, objectSummary.getKey());
+                }
+                if (objectListing.isTruncated()) {
+                    objectListing = s3client.listNextBatchOfObjects(objectListing);
+                } else {
+                    break;
+                }
+            }
+            s3client.deleteBucket(bucketNameToDelete);
+            return "Bucket deleted successfully: " + bucketNameToDelete;
+        } catch (AmazonS3Exception e) {
+            e.printStackTrace();
+            return "Error in deleting bucket: " + e.getMessage();
+        }
+    }
+
+    public String uploadFile(MultipartFile multipartFile, String bucketName) {
         String fileURL = "";
         try {
             File file = convertMultiPartToFile(multipartFile);
             String fileName = generateFileName(multipartFile);
-            uploadFileToS3bucket(fileName, file);
+            uploadFileToS3bucket(fileName, file, bucketName);
             file.delete();
         } catch (IOException e) {
             e.printStackTrace();
@@ -53,8 +92,8 @@ public class AmazonService {
 
         return fileURL;
     }
-//    dependencies
-    private File convertMultiPartToFile(MultipartFile file) throws IOException{
+
+    private File convertMultiPartToFile(MultipartFile file) throws IOException {
         File convertFile = new File(file.getOriginalFilename());
         FileOutputStream fileOutputStream = new FileOutputStream(convertFile);
         fileOutputStream.write(file.getBytes());
@@ -62,42 +101,48 @@ public class AmazonService {
         return convertFile;
     }
 
-    private String generateFileName(MultipartFile file){
+    private String generateFileName(MultipartFile file) {
         return Date.from(Instant.now()).getTime() + "-"
                 + file.getOriginalFilename().replace(" ", "_");
     }
 
-    private void uploadFileToS3bucket(String fileName, File file){
-        s3client.putObject(new PutObjectRequest(bucketName, fileName, file)
-                .withCannedAcl(CannedAccessControlList.PublicRead));
+    public CompletableFuture<String> uploadFileToS3bucket(String fileName, File file, String bucketName) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                s3client.putObject(new PutObjectRequest(bucketName, fileName, file));
+                return "File uploaded successfully: " + fileName;
+            } catch (AmazonS3Exception e) {
+                throw new RuntimeException("Error uploading file: " + e.getMessage());
+            }
+        });
     }
 
-    public String deleteFileFromS3bucket(String fileURL){
-        String fileName = fileURL.substring(fileURL.lastIndexOf("/")+1);
+    public String deleteFileFromS3bucket(String fileName, String bucketName) {
         s3client.deleteObject(new DeleteObjectRequest(bucketName, fileName));
         return "Successfully deleted: " + fileName;
     }
 
-    public List<String> listFiles(){
-        ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
-                .withBucketName(bucketName).withPrefix("/");
 
-        List<String> keys = new ArrayList<>();
-        ObjectListing listing = s3client.listObjects(listObjectsRequest);
-        while (true){
-            List<S3ObjectSummary> summaries = listing.getObjectSummaries();
-            if(summaries.isEmpty()){
+    public List<String> listFiles(String bucketName) {
+        List<String> fileNames = new ArrayList<>();
+        ObjectListing objectListing = s3client.listObjects(new ListObjectsRequest()
+                .withBucketName(bucketName));
+
+        while (true) {
+            for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
+                fileNames.add(objectSummary.getKey());
+            }
+            if (objectListing.isTruncated()) {
+                objectListing = s3client.listNextBatchOfObjects(objectListing);
+            } else {
                 break;
             }
-            for(S3ObjectSummary item: summaries){
-                if(!item.getKey().endsWith("/")){
-                    keys.add(item.getKey());
-                }
-            }
-            listing = s3client.listNextBatchOfObjects(listing);
         }
-        return keys;
+        return fileNames;
     }
 
+    public List<Bucket> listBuckets() {
+        return s3client.listBuckets();
+    }
 
 }

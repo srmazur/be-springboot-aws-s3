@@ -11,4 +11,3 @@ export AWS_REGION=$AWS_REGION
 mvn clean package
 
 java -jar ~/IdeaProjects/springboot-aws-s3/target/springboot-aws-s3-0.0.1-SNAPSHOT.jar
-
