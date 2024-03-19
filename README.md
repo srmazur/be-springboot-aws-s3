@@ -7,12 +7,12 @@ To utilize this application, certain prerequisites must be met:
 3. Have on your machine aws cli , mvn 
 4. Run the application : ./start-application.sh
 
-Create Bucket:          curl -X POST "http://localhost:8080/storage/createBucket?bucketName={bucketName}"
-Upload File:            curl -X POST -F "file=@{/path/to/your/file.txt}" -F "bucketName={bucketName}" http://localhost:8080/storage/uploadFile
-Delete File:            curl -X DELETE "http://localhost:8080/storage/deleteFile?bucketName={bucketName}t&fileName={fileName}"
-Delete Bucket:          curl -X DELETE "http://localhost:8080/storage/deleteBucket?bucketName={bucketName}"
-List Buckets:           curl -X GET "http://localhost:8080/storage/listBuckets"
-List Items in a Bucket: curl -X GET "http://localhost:8080/storage/listItems?bucketName={bucketName}"
+Create Bucket:          `curl -X POST "http://localhost:8080/storage/createBucket?bucketName={bucketName}"`
+Upload File:            `curl -X POST -F "file=@{/path/to/your/file.txt}" -F "bucketName={bucketName}" http://localhost:8080/storage/uploadFile`
+Delete File:            `curl -X DELETE "http://localhost:8080/storage/deleteFile?bucketName={bucketName}t&fileName={fileName}"`
+Delete Bucket:          `curl -X DELETE "http://localhost:8080/storage/deleteBucket?bucketName={bucketName}"`
+List Buckets:           `curl -X GET "http://localhost:8080/storage/listBuckets"`
+List Items in a Bucket: `curl -X GET "http://localhost:8080/storage/listItems?bucketName={bucketName}"`
 
 
 
